@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BotX Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css?family=Inter:400,600&display=swap" rel="stylesheet">
+<style> 
+  :root {
+    --bg: #e3f0fa;
+    --chat-bg: #f7fbff;
+    --bot-bubble: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+    --user-bubble: linear-gradient(135deg, #4f8cff 0%, #185a9d 100%);
+    --text: #1a2236;
+    --border: #b3c2e0;
+    --header: #185a9d;
+    --send-btn: #185a9d;
+    --send-btn-hover: #43cea2;
+    --taskbar-bg: #fff;
+    --taskbar-border: #b3c2e0;
+  }
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: var(--bg);
+    transition: background 0.3s;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    color: var(--text);
+  }
+  body.dark {
+    --bg: #181a23;
+    --chat-bg: #232946;
+    --bot-bubble: linear-gradient(135deg, #232946 0%, #43cea2 100%);
+    --user-bubble: linear-gradient(135deg, #185a9d 0%, #4f8cff 100%);
+    --text: #fff;
+    --border: #333;
+    --header: #232946;
+    --send-btn: #43cea2;
+    --send-btn-hover: #185a9d;
+    --taskbar-bg: #232946;
+    --taskbar-border: #333;
+    color: var(--text);
+  }
+  
+  /* Welcome Screen Styles */
+  #welcome-screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--header);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    transition: opacity 0.5s ease-out;
+  }
+  #welcome-screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #welcome-logo {
+    width: 120px;
+    height: 120px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  }
+  #welcome-logo img {
+    width: 80px;
+    height: 80px;
+  }
+  #welcome-text {
+    font-size: 2.5em;
+    font-weight: bold;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  #welcome-subtext {
+    font-size: 1.2em;
+    opacity: 0.9;
+    margin-bottom: 40px;
+    text-align: center;
+  }
+  #start-chat-btn {
+    padding: 12px 30px;
+    font-size: 1.2em;
+    background: white;
+    color: var(--header);
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-weight: bold;
+  }
+  #start-chat-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  .chatbot-main {
+    display: flex;
+    align-items: flex-start;
+    margin-top: 40px;
+    opacity: 0;
+    transition: opacity 0.5s ease-in;
+  }
+  .chatbot-main.visible {
+    opacity: 1;
+  }
+  .chatbot-container {
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  h1 {
+    text-align: center;
+    color: var(--header);
+    margin-bottom: 14px;
+  }
+  #chatbox {
+    width: 100%;
+    height: 500px;
+    border: 1px solid var(--border);
+    padding: 10px;
+    overflow-y: scroll;
+    background: var(--chat-bg);
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    color: var(--text);
+    transition: background 0.3s, color 0.3s, border 0.3s;
+  }
+  .msg-row {
+    display: flex;
+    margin-bottom: 10px;
+    align-items: flex-end;
+  }
+  .bot-msg { justify-content: flex-start; }
+  .user-msg { justify-content: flex-end; }
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    margin: 0 8px;
+    object-fit: cover;
+    background: #fff;
+    border: 1px solid var(--border);
+  }
+  .msg-bubble {
+    max-width: 60%;
+    padding: 10px 16px;
+    border-radius: 16px;
+    margin: 2px;
+    font-size: 1em;
+    word-break: break-word;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    color: #fff;
+    position: relative;
+    cursor: default;
+    transition: background 0.2s;
+  }
+  .bot-bubble {
+    background: var(--bot-bubble);
+    border-bottom-left-radius: 2px;
+  }
+  .user-bubble {
+    background: var(--user-bubble);
+    border-bottom-right-radius: 2px;
+  }
+  .msg-bubble.editable:hover {
+    outline: 2px dashed var(--header);
+    cursor: pointer;
+  }
+  .edit-input {
+    width: 90%;
+    padding: 6px;
+    font-size: 1em;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-right: 6px;
+  }
+  .save-btn {
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: none;
+    background: var(--send-btn);
+    color: #fff;
+    cursor: pointer;
+  }
+  .cancel-btn {
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: none;
+    background: #bbb;
+    color: #fff;
+    cursor: pointer;
+  }
+  /* Input area */
+  #input-area {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto;
+    margin-top: 10px;
+    max-width: 700px;
+    width: 100%;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    position: relative;
+  }
+  #user-input {
+    flex: 1;
+    padding: 12px;
+    font-size: 1em;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    margin-right: 12px;
+    outline: none;
+    background: var(--chat-bg);
+    box-sizing: border-box;
+    transition: border 0.2s;
+    max-width: 75%;
+    color: var(--text);
+  }
+  #user-input:focus {
+    border: 1.5px solid var(--header);
+  }
+  #send-btn, #mic-btn {
+    padding: 12px 18px;
+    font-size: 1em;
+    background: var(--send-btn);
+    color: #fff;
+    border: none;
+    border-radius: 18px;
+    cursor: pointer;
+    transition: background 0.2s;
+    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+    margin-left: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #send-btn:hover, #mic-btn:hover { background: var(--send-btn-hover); }
+  #mic-btn.listening { background: #388e3c; }
+  #user-typing-indicator {
+    position: absolute;
+    left: 10px;
+    bottom: -22px;
+    font-size: 0.95em;
+    color: #888;
+    font-style: italic;
+  }
+  /* Quick reply buttons */
+  #quick-replies {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    max-width: 700px;
+    margin: 10px auto 0 auto;
+    justify-content: flex-start;
+  }
+  .quick-reply-btn {
+    background: var(--user-bubble);
+    color: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 7px 18px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    margin-bottom: 6px;
+  }
+  .quick-reply-btn:hover {
+    background: var(--send-btn);
+    color: #fff;
+  }
+  /* Typing indicator animation */
+  .typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .typing-dots {
+    display: flex;
+    align-items: center;
+    height: 1em;
+  }
+  .typing-dots span {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin: 0 2px;
+    background: #43cea2;
+    border-radius: 50%;
+    opacity: 0.6;
+    animation: blink 1.4s infinite both;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.6; }
+    40% { opacity: 1; }
+  }
+  /* Right-side taskbar (now draggable) */
+  .taskbar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--taskbar-bg);
+    border: 1px solid var(--taskbar-border);
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    padding: 18px 10px;
+    height: 320px;
+    min-width: 60px;
+    gap: 18px;
+    position: fixed;
+    top: 60px;
+    right: 40px;
+    z-index: 1000;
+    cursor: move;
+    user-select: none;
+  }
+  .taskbar-btn {
+    background: var(--send-btn);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3em;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 6px;
+  }
+  .taskbar-btn:hover {
+    background: var(--send-btn-hover);
+  }
+  .taskbar-label {
+    font-size: 0.8em;
+    color: var(--text);
+    margin-top: 2px;
+    text-align: center;
+  }
+  /* History modal */
+  .modal-bg {
+    display: none;
+    position: fixed;
+    z-index: 10;
+    left: 0; top: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.3);
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-bg.active { display: flex; }
+  .modal {
+    background: var(--chat-bg);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 24px 18px;
+    min-width: 320px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.16);
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .modal-close {
+    position: absolute;
+    top: 10px; right: 14px;
+    background: transparent;
+    border: none;
+    font-size: 1.4em;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .history-entry {
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .history-entry:last-child {
+    border-bottom: none;
+  }
+  .history-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 1.1em;
+  }
+  .history-msg {
+    margin-left: 8px;
+    font-size: 0.98em;
+  }
+  /* Responsive for smaller screens */
+  @media (max-width: 800px) {
+    .chatbot-main {
+      flex-direction: column;
+      align-items: center;
+    }
+    .taskbar {
+      flex-direction: row;
+      position: static !important;
+      width: 100%;
+      min-width: 0;
+      height: auto;
+      margin: 18px auto 0 auto;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .taskbar-btn { margin-bottom: 0; margin-right: 12px; }
+    
+    #welcome-text {
+      font-size: 2em;
+    }
+    #welcome-subtext {
+      font-size: 1em;
+    }
+  }
+  /* Robot character styling */
+  #robot-container {
+    position: fixed;
+    left: 50px;
+    bottom: 50px;
+    z-index: 1000;
+    transition: all 0.3s ease;
+  }
+  #robot-character {
+    width: 150px;
+    height: auto;
+    animation: float 3s ease-in-out infinite;
+    cursor: pointer;
+  }
+  /* Robot Character Styles */
+  #robot-container {
+    position: fixed;
+    left: 50px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1000;
+    transition: all 0.3s ease;
+  }
+  #robot-character {
+    width: 180px;
+    height: auto;
+    animation: float 3s ease-in-out infinite;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+  }
+  /* Animations */
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(-5deg); }
+    50% { transform: translateY(-20px) rotate(5deg); }
+  }
+  @keyframes wave {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-15deg); }
+    75% { transform: rotate(15deg); }
+  }
+  @keyframes blink {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(0.1); }
+  }
+  /* Hover Effects */
+  #robot-character:hover {
+    animation: wave 1s ease-in-out;
+    transform: scale(1.05);
+  }
+  /* Mobile Responsiveness */
+  @media (max-width: 1200px) {
+    #robot-container {
+      display: none;
+    }
+    .chatbot-container {
+      margin-left: 0 !important;
+    }
+  }
+</style>  
+</head>
+<body>
+  <!-- Welcome Screen -->
+  <div id="welcome-screen">
+    <div id="welcome-logo">
+      <img src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png" alt="Chatbot Logo">
+    </div>
+    <div id="welcome-text">Welcome to ChatBot</div>
+    <div id="welcome-subtext">Your intelligent virtual assistant</div>
+    <button id="start-chat-btn">Start Chatting</button>
+  </div>
+  
+  <!-- Main Chat Interface (hidden initially) -->
+  <div class="chatbot-main">
+    <div class="chatbot-container">
+      <div id="chatbox"></div>
+      <div id="quick-replies"></div>
+      <div id="input-area">
+        <input type="text" id="user-input" placeholder="Type your message here..." autocomplete="off" />
+        <button id="mic-btn" title="Voice Input">🎤</button>
+        <button id="send-btn">Send</button>
+        <span id="user-typing-indicator" style="display:none;">You are typing…</span>
+      </div>
+    </div>
+    <div class="taskbar" id="draggable-taskbar">
+      <button id="theme-toggle" class="taskbar-btn" title="Toggle Theme">🌙</button>
+      <span class="taskbar-label">Theme</span>
+      <button id="history-btn" class="taskbar-btn" title="Chat History">🕑</button>
+      <span class="taskbar-label">History</span>
+    </div>
+  </div>
+  <!-- History Modal -->
+  <div class="modal-bg" id="history-modal-bg">
+    <div class="modal">
+      <button class="modal-close" id="close-history">&times;</button>
+      <div id="history-content"></div>
+    </div>
+  </div>
+  <script>
+    const chatbox = document.getElementById('chatbox');
+    const input = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const quickRepliesDiv = document.getElementById('quick-replies');
+    const themeToggle = document.getElementById('theme-toggle');
+    const micBtn = document.getElementById('mic-btn');
+    const historyBtn = document.getElementById('history-btn');
+    const historyModalBg = document.getElementById('history-modal-bg');
+    const historyContent = document.getElementById('history-content');
+    const closeHistoryBtn = document.getElementById('close-history');
+    const userTypingIndicator = document.getElementById('user-typing-indicator');
+    const taskbar = document.getElementById('draggable-taskbar');
+    const welcomeScreen = document.getElementById('welcome-screen');
+    const startChatBtn = document.getElementById('start-chat-btn');
+    const chatbotMain = document.querySelector('.chatbot-main');
+
+    // Avatars
+    const botAvatar = "https://ui-avatars.com/api/?name=Bot&background=1976d2&color=fff&bold=true";
+    const userAvatar = "https://ui-avatars.com/api/?name=You&background=e0e0ff&color=222&bold=true";
+    function appendMessage(sender, text) {
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('message');
+    if (sender === 'user') {
+        msgDiv.innerHTML = `<span class="user">You:</span> <span class="user-text">${text}</span>
+            <button class="edit-btn" style="margin-left:8px;">Edit</button>`;
+    } else {
+        msgDiv.innerHTML = `<span class="bot">Bot:</span> <span class="bot-text">${text}</span>`;
+    }
+    chatbox.appendChild(msgDiv);
+    chatbox.scrollTop = chatbox.scrollHeight;
+}
+    // Possible initial bot replies
+    const initialBotReplies = [
+      "Yes, sure!",
+      "Just a moment…",
+      "Yes, here is your explanation:",
+      "Of course, let me explain.",
+      "Yes, just a min…"
+    ];
+
+    // Example quick replies (customize as needed)
+    const quickReplies = [
+      "What can you do?",
+      "Show me a joke",
+      "How's the weather?",
+      "Help",
+      "Contact support"
+    ];
+
+    // Chat history (localStorage)
+    function saveHistory(history) {
+      localStorage.setItem('chatHistory', JSON.stringify(history));
+    }
+    function loadHistory() {
+      return JSON.parse(localStorage.getItem('chatHistory') || '[]');
+    }
+    function addToHistory(sender, message) {
+      const history = loadHistory();
+      history.push({ sender, message, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
+      saveHistory(history);
+    }
+
+    function renderHistory() {
+      const history = loadHistory();
+      if (!history.length) {
+        historyContent.innerHTML = "<p>No chat history yet.</p>";
+        return;
+      }
+      historyContent.innerHTML = history.map(entry => 
+        `<div class="history-entry">
+          <span class="history-title">${entry.sender} <span style="font-size:0.85em;color:#888;">${entry.time}</span></span>
+          <div class="history-msg">${entry.message}</div>
+        </div>`
+      ).join('');
+    }
+
+    // Avatars and message logic
+    function appendMessage(sender, message, avatarUrl, editable=false, index=null) {
+      const row = document.createElement('div');
+      row.className = 'msg-row ' + (sender === 'You' ? 'user-msg' : 'bot-msg');
+
+      if (sender === 'Bot') {
+        // Bot avatar on left
+        const avatar = document.createElement('img');
+        avatar.className = 'avatar';
+        avatar.src = avatarUrl;
+        avatar.alt = "Bot";
+        row.appendChild(avatar);
+      }
+
+      const bubble = document.createElement('div');
+      bubble.className = 'msg-bubble ' + (sender === 'You' ? 'user-bubble' : 'bot-bubble');
+      bubble.textContent = message;
+      if (editable && sender === 'You') {
+        bubble.classList.add('editable');
+        bubble.title = "Click to edit";
+        bubble.onclick = () => editUserMessage(bubble, message, index);
+      }
+      row.appendChild(bubble);
+
+      if (sender === 'You') {
+        // User avatar on right
+        const avatar = document.createElement('img');
+        avatar.className = 'avatar';
+        avatar.src = avatarUrl;
+        avatar.alt = "You";
+        row.appendChild(avatar);
+      }
+
+      chatbox.appendChild(row);
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    // Typing indicator functions with animated dots
+    function showTypingIndicator() {
+      if (document.getElementById('typing-indicator')) return;
+      const typingRow = document.createElement('div');
+      typingRow.id = 'typing-indicator';
+      typingRow.className = 'msg-row bot-msg';
+      const avatar = document.createElement('img');
+      avatar.className = 'avatar';
+      avatar.src = botAvatar;
+      avatar.alt = "Bot";
+      typingRow.appendChild(avatar);
+
+      const bubble = document.createElement('div');
+      bubble.className = 'msg-bubble bot-bubble';
+      bubble.innerHTML = 
+        `<span class="typing-indicator">
+          Bot is typing
+          <span class="typing-dots">
+            <span></span><span></span><span></span>
+          </span>
+        </span>`;
+      typingRow.appendChild(bubble);
+      chatbox.appendChild(typingRow);
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+      const typing = document.getElementById('typing-indicator');
+      if (typing) typing.remove();
+    }
+
+    function getRandomInitialReply() {
+      return initialBotReplies[Math.floor(Math.random() * initialBotReplies.length)];
+    }
+
+    // Store messages for editing and history
+    let userMessages = [];
+
+    function sendMessage(messageText, fromQuickReply=false) {
+      const message = messageText !== undefined ? messageText : input.value.trim();
+      if (!message) return;
+      appendMessage('You', message, userAvatar, true, userMessages.length);
+      addToHistory('You', message);
+      userMessages.push(message);
+      input.value = '';
+      input.focus();
+      userTypingIndicator.style.display = "none";
+
+      // 1. After 1 second, show random initial bot reply
+      setTimeout(() => {
+        appendMessage('Bot', getRandomInitialReply(), botAvatar);
+        addToHistory('Bot', getRandomInitialReply());
+
+        // 2. After 0.5s, show typing indicator
+        setTimeout(() => {
+          showTypingIndicator();
+
+          // 3. After another 1s, fetch real bot response
+          setTimeout(() => {
+            fetch('/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message })
+            })
+            .then(res => res.json())
+            .then(data => {
+              removeTypingIndicator();
+              appendMessage('Bot', data.response, botAvatar);
+              addToHistory('Bot', data.response);
+              // Optionally update quick replies based on response
+              showQuickReplies(quickReplies);
+            })
+            .catch(() => {
+              removeTypingIndicator();
+              appendMessage('Bot', 'Error: Could not reach server.', botAvatar);
+              addToHistory('Bot', 'Error: Could not reach server.');
+            });
+          }, 1000); // 1 second after typing indicator
+
+        }, 500); // 0.5 second after initial reply
+
+      }, 1000); // 1 second after user message
+    }
+
+    sendBtn.addEventListener('click', () => sendMessage());
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    // Quick Reply Buttons
+    function showQuickReplies(replies) {
+      quickRepliesDiv.innerHTML = '';
+      replies.forEach(reply => {
+        const btn = document.createElement('button');
+        btn.className = 'quick-reply-btn';
+        btn.textContent = reply;
+        btn.onclick = () => {
+          sendMessage(reply, true);
+          quickRepliesDiv.innerHTML = '';
+        };
+        quickRepliesDiv.appendChild(btn);
+      });
+    }
+
+    // Theme toggle
+    themeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      themeToggle.textContent = document.body.classList.contains('dark') ? "☀️" : "🌙";
+    });
+
+    // History modal
+    historyBtn.addEventListener('click', () => {
+      renderHistory();
+      historyModalBg.classList.add('active');
+    });
+    closeHistoryBtn.addEventListener('click', () => {
+      historyModalBg.classList.remove('active');
+    });
+    historyModalBg.addEventListener('click', e => {
+      if (e.target === historyModalBg) historyModalBg.classList.remove('active');
+    });
+
+    // Voice command (Web Speech API)
+    let recognition, recognizing = false;
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'en-US';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.onstart = () => {
+        recognizing = true;
+        micBtn.classList.add('listening');
+        micBtn.title = "Listening...";
+      };
+      recognition.onend = () => {
+        recognizing = false;
+        micBtn.classList.remove('listening');
+        micBtn.title = "Voice Input";
+      };
+      recognition.onresult = event => {
+        const transcript = event.results[0][0].transcript;
+        input.value = transcript;
+        input.focus();
+      };
+      micBtn.onclick = () => {
+        if (recognizing) {
+          recognition.stop();
+        } else {
+          recognition.start();
+        }
+      };
+    } else {
+      micBtn.style.display = "none";
+    }
+
+    // User typing indicator
+    let typingTimeout;
+    input.addEventListener('input', () => {
+      if (input.value.trim().length > 0) {
+        userTypingIndicator.style.display = "inline";
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+          userTypingIndicator.style.display = "none";
+        }, 1200);
+      } else {
+        userTypingIndicator.style.display = "none";
+      }
+    });
+
+    // Edit sent message
+    function editUserMessage(bubble, oldText, index) {
+      const inputEdit = document.createElement('input');
+      inputEdit.type = 'text';
+      inputEdit.value = oldText;
+      inputEdit.className = 'edit-input';
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = "Save";
+      saveBtn.className = 'save-btn';
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.className = 'cancel-btn';
+
+      bubble.innerHTML = '';
+      bubble.appendChild(inputEdit);
+      bubble.appendChild(saveBtn);
+      bubble.appendChild(cancelBtn);
+
+      inputEdit.focus();
+
+      saveBtn.onclick = () => {
+        const newText = inputEdit.value.trim();
+        if (newText && newText !== oldText) {
+          bubble.textContent = newText;
+          userMessages[index] = newText;
+          // Also update in history
+          const history = loadHistory();
+          let count = 0;
+          for (let i = 0; i < history.length; i++) {
+            if (history[i].sender === 'You') {
+              if (count === index) {
+                history[i].message = newText;
+                break;
+              }
+              count++;
+            }
+          }
+          saveHistory(history);
+        } else {
+          bubble.textContent = oldText;
+        }
+        bubble.classList.add('editable');
+        bubble.title = "Click to edit";
+        bubble.onclick = () => editUserMessage(bubble, bubble.textContent, index);
+      };
+      cancelBtn.onclick = () => {
+        bubble.textContent = oldText;
+        bubble.classList.add('editable');
+        bubble.title = "Click to edit";
+        bubble.onclick = () => editUserMessage(bubble, oldText, index);
+      };
+    }
+    function removeBotMessagesAfter(userMsgDiv) {
+    let next = userMsgDiv.nextSibling;
+    while (next) {
+        let toRemove = next;
+        next = next.nextSibling;
+        if (toRemove.querySelector && toRemove.querySelector('.bot')) {
+            chatbox.removeChild(toRemove);
+        }
+    }
+}
+
+    // Show welcome message and quick replies on page load
+    function startChat() {
+      // Hide welcome screen and show main chat interface
+      welcomeScreen.classList.add('hidden');
+      chatbotMain.classList.add('visible');
+      input.focus();
+      
+      // Show welcome message from bot
+      setTimeout(() => {
+        appendMessage('Bot', 'Hello! How may I help you today?', botAvatar);
+        addToHistory('Bot', 'Hello! How may I help you today?');
+        showQuickReplies(quickReplies);
+      }, 500);
+    }
+
+    // Start chat when button is clicked
+    startChatBtn.addEventListener('click', startChat);
+
+    // Also start chat if user presses Enter on welcome screen
+    welcomeScreen.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        startChat();
+      }
+    });
+
+    // Focus the start button on welcome screen
+    window.onload = () => {
+      startChatBtn.focus();
+    };
+
+    // --- DRAGGABLE TASKBAR LOGIC ---
+    let isDragging = false, offsetX = 0, offsetY = 0;
+
+    taskbar.addEventListener('mousedown', function(e) {
+      // Only allow drag from taskbar background, not buttons
+      if (e.target !== taskbar) return;
+      isDragging = true;
+      offsetX = e.clientX - taskbar.getBoundingClientRect().left;
+      offsetY = e.clientY - taskbar.getBoundingClientRect().top;
+      document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (isDragging) {
+        taskbar.style.left = (e.clientX - offsetX) + 'px';
+        taskbar.style.top = (e.clientY - offsetY) + 'px';
+        taskbar.style.right = 'auto';
+      }
+    });
+
+    document.addEventListener('mouseup', function() {
+      isDragging = false;
+      document.body.style.userSelect = '';
+    });
+
+    // Optional: On mobile, disable draggable (since it's not as useful)
+    if (window.innerWidth < 800) {
+      taskbar.style.position = 'static';
+      taskbar.style.left = '';
+      taskbar.style.top = '';
+      taskbar.style.right = '';
+      taskbar.style.cursor = 'pointer';
+    }
+      // Robot Interactions
+  const robot = document.getElementById('robot-character');
+  
+  // Click interaction
+  robot.addEventListener('click', () => {
+    robot.style.animation = 'wave 1s ease-in-out';
+    setTimeout(() => {
+      robot.style.animation = 'float 3s ease-in-out infinite';
+    }, 1000);
+  });
+
+  // Automatic blinking
+  setInterval(() => {
+    robot.style.transformOrigin = 'top center';
+    robot.style.animation = 'blink 0.3s ease';
+    setTimeout(() => {
+      robot.style.animation = 'float 3s ease-in-out infinite';
+    }, 300);
+  }, 15000); // Blink every 15 seconds
+
+  // Adjust chat container position
+  document.querySelector('.chatbot-container').style.marginLeft = '220px';
+  document.querySelector('.chatbot-container').style.transition = 'margin 0.3s ease';
+
+  // Hover effect
+  robot.addEventListener('mouseenter', () => {
+    robot.style.transform = 'scale(1.05)';
+  });
+  robot.addEventListener('mouseleave', () => {
+    robot.style.transform = 'scale(1)';
+  });
+  // ... (keep your existing variable declarations and functions) ...
+
+  // ========== API KEYS ==========
+  const OPENWEATHER_API_KEY = "cab35fa52409dfdd3b321c7b57bf1960"; // <-- Replace with your key
+  const NEWSAPI_KEY = "104cfb8705de4d9b9ebb49a427268eb8"; // <-- Replace with your key
+
+  // ========== API FUNCTIONS ==========
+
+  // Get weather for a city (default: London)
+  async function getWeather(city = "London") {
+    try {
+      const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+      const res = await fetch(url);
+      if (!res.ok) return "Sorry, I couldn't fetch the weather right now.";
+      const data = await res.json();
+      return `Weather in ${data.name}: ${data.weather[0].description}, ${data.main.temp}°C (feels like ${data.main.feels_like}°C).`;
+    } catch (e) {
+      return "Sorry, I couldn't fetch the weather right now.";
+    }
+  }
+
+  // Get a random joke
+  async function getJoke() {
+    try {
+      const res = await fetch("https://official-joke-api.appspot.com/random_joke");
+      if (!res.ok) return "Sorry, I couldn't fetch a joke right now.";
+      const data = await res.json();
+      return `${data.setup} ... ${data.punchline}`;
+    } catch (e) {
+      return "Sorry, I couldn't fetch a joke right now.";
+    }
+  }
+
+  // Get latest news headlines
+  async function getNews() {
+    try {
+        const url = `https://corsproxy.io/?https://newsapi.org/v2/top-headlines?country=us&pageSize=3&apiKey=${NEWSAPI_KEY}`;
+      const res = await fetch(url);
+      if (!res.ok) return "Sorry, I couldn't fetch the news right now.";
+      const data = await res.json();
+      if (!data.articles || data.articles.length === 0) return "No news found!";
+      return data.articles.map(
+        art => `<b>${art.title}</b><br><a href="${art.url}" target="_blank">${art.source.name}</a><br>`
+      ).join("<br>");
+    } catch (e) {
+      return "Sorry, I couldn't fetch the news right now.";
+    }
+  }
+
+  // Simulate support (mailto link)
+  function getSupport() {
+    return `You can <a href="mailto:support@example.com?subject=Support%20Request" target="_blank">email our support team</a>.`;
+  }
+
+  // ========== BOT RESPONSE LOGIC ==========
+
+  async function getBotResponse(message) {
+    const msg = message.toLowerCase();
+
+    // Weather
+    if (msg.includes("weather")) {
+      // Try to extract city
+      const cityMatch = msg.match(/weather in ([a-zA-Z\s]+)/);
+      const city = cityMatch ? cityMatch[1].trim() : "London";
+      return await getWeather(city);
+    }
+
+    // Joke
+    if (msg.includes("joke")) {
+      return await getJoke();
+    }
+
+    // News
+    if (msg.includes("news")) {
+      return await getNews();
+    }
+
+    // Support
+    if (msg.includes("support") || msg.includes("help")) {
+      return getSupport();
+    }
+
+    // Default fallback
+    if (msg.includes("hello") || msg.includes("hi")) {
+      return "Hello! How can I help you today? Try asking for the weather, a joke, or the news!";
+    }
+
+    return "I'm your smart assistant! Ask me for the weather, a joke, or the latest news.";
+  }
+
+  // ========== CHAT HANDLING (unchanged, just call getBotResponse) ==========
+
+  async function handleUserMessage(message) {
+    appendMessage('user', message, userAvatar);
+    addToHistory('You', message);
+
+    // Show typing indicator
+    showBotTyping();
+
+    // Get bot response (can be async)
+    let botReply = await getBotResponse(message);
+
+    // Hide typing indicator
+    hideBotTyping();
+
+    appendMessage('bot', botReply, botAvatar);
+    addToHistory('Bot', botReply);
+  }
+  chatbox.addEventListener('click', function(e) {
+    if (e.target.classList.contains('edit-btn')) {
+        const msgDiv = e.target.closest('.message');
+        const userTextSpan = msgDiv.querySelector('.user-text');
+        const oldText = userTextSpan.textContent;
+        userTextSpan.innerHTML = `<input type="text" class="edit-input" value="${oldText}" style="width:60%;"> <button class="resend-btn">Resend</button>`;
+    } else if (e.target.classList.contains('resend-btn')) {
+        const msgDiv = e.target.closest('.message');
+        const input = msgDiv.querySelector('.edit-input');
+        const newText = input.value.trim();
+        if (newText) {
+            // Replace the input with the new text
+            msgDiv.querySelector('.user-text').textContent = newText;
+            // Optionally, remove old bot responses after this message
+            removeBotMessagesAfter(msgDiv);
+            // Generate new bot reply
+            handleUserMessage(newText);
+        }
+    }
+});
+
+
+  // ========== EXISTING CODE: appendMessage, showBotTyping, hideBotTyping, etc. ==========
+  sendBtn.addEventListener('click', () => {
+    const msg = input.value.trim();
+    if (msg) {
+      input.value = "";
+      handleUserMessage(msg);
+    }
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === "Enter") {
+      sendBtn.click();
+    }
+  });
+
+  // Quick replies (if you want to trigger APIs)
+  quickRepliesDiv.addEventListener('click', (e) => {
+    if (e.target.classList.contains('quick-reply-btn')) {
+      handleUserMessage(e.target.textContent);
+    }
+  });
+  </script>
+  <div id="robot-container">
+    <img src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png" 
+         alt="Assistant Robot" 
+         id="robot-character">
+  </div>
+</body>
+</html>

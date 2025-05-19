@@ -1,0 +1,136 @@
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS  # Add this for CORS support
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import random
+import time
+import logging
+import requests  # Add this for NewsAPI
+
+app = Flask(__name__)
+CORS(app)  # Enable CORS if your frontend is separate
+
+# ========== CONFIGURATION ==========
+NEWSAPI_KEY = " "  # Get from https://newsapi.org/
+MODEL_PATH = r"C:\Users\Desktop\Qwen2.5-0.5B-Instruct"
+# ===================================
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Initialize device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Load model
+if device.type == "cuda":
+    model = AutoModelForCausalLM.from_pretrained(MODEL_PATH, torch_dtype=torch.float16).to(device)
+else:
+    model = AutoModelForCausalLM.from_pretrained(MODEL_PATH)
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, use_fast=True)
+
+BOT_INITIAL_REPLIES = [
+    "Yes, sure!",
+    "Just a moment…",
+    "Yes, here is your explanation:",
+    "Of course, let me explain.",
+    "Yes, just a min…"
+]
+
+def get_news(user_input=None):
+    try:
+        url = f"https://newsapi.org/v2/top-headlines?country=us&pageSize=3&apiKey={NEWSAPI_KEY}"
+        topic = None
+        country = "us"
+        if user_input:
+            for t in ["technology", "tech", "sports", "business", "science", "health", "entertainment"]:
+                if t in user_input:
+                    topic = t
+                    break
+            if "india" in user_input:
+                country = "in"
+            elif "uk" in user_input or "united kingdom" in user_input:
+                country = "gb"
+            elif "australia" in user_input:
+                country = "au"
+            if topic:
+                url = f"https://newsapi.org/v2/top-headlines?country={country}&category={topic}&pageSize=3&apiKey={NEWSAPI_KEY}"
+            else:
+                url = f"https://newsapi.org/v2/top-headlines?country={country}&pageSize=3&apiKey={NEWSAPI_KEY}"
+
+        response = requests.get(url)
+        data = response.json()
+        if response.status_code != 200 or not data.get("articles"):
+            return "Sorry, I couldn't fetch news at the moment."
+        news_items = []
+        for idx, article in enumerate(data["articles"][:3], 1):
+            title = article.get("title", "No title available")
+            source = article.get("source", {}).get("name", "Unknown source")
+            news_items.append(f"{idx}. {title} ({source})")
+        return "Here are the latest headlines:\n" + "\n".join(news_items)
+    except Exception as e:
+        logger.error(f"NewsAPI Error: {e}")
+        return "Sorry, I couldn't fetch news at the moment."
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    try:
+        user_input = request.json.get("message", "")
+        user_input_lower = user_input.lower() if user_input else ""
+
+        # Handle news request first (pass user_input for topic/country detection)
+        if "news" in user_input_lower:
+            news_response = get_news(user_input_lower)
+            return jsonify({"response": news_response})
+
+        # Existing Qwen model logic for other queries
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful assistant. "
+                    "Always respond with clear headings and line breaks for each section. "
+                    "Use this format:\n"
+                    "Definition:\n"
+                    "Your text here.\n\n"
+                    "Key Components:\n"
+                    "Your text here.\n\n"
+                    "Applications:\n"
+                    "Your text here.\n"
+                )
+            },
+            {"role": "user", "content": user_input}
+        ]
+
+        prompt = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+
+        model_inputs = tokenizer([prompt], return_tensors="pt").to(device)
+        with torch.no_grad():
+            generated_ids = model.generate(
+                **model_inputs,
+                max_new_tokens=64,
+                pad_token_id=tokenizer.eos_token_id
+            )
+
+        generated_ids = [
+            output_ids[len(input_ids):]
+            for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+        response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
+        return jsonify({"response": response.strip() or "Sorry, I couldn't generate a response."})
+
+    except Exception as e:
+        logger.error(f"Chat Error: {e}")
+        return jsonify({"error": "Internal Server Error"}), 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
